@@ -33,7 +33,15 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
-  if (interaction.isButton() && interaction.customId.startsWith('bet_')) {
+  const cooldowns = new Map();
+if (interaction.isButton() && interaction.customId.startsWith('bet_')) {
+    const now = Date.now();
+    const last = cooldowns.get(interaction.user.id) || 0;
+    if (now - last < 60000) {
+      const left = Math.ceil((60000 - (now - last)) / 1000);
+      return interaction.reply({ content: '⏳ Attends encore ' + left + 's avant de changer ton pari.', ephemeral: true });
+    }
+    cooldowns.set(interaction.user.id, now);
     const parts = interaction.customId.split('_');
     const choice = parseInt(parts[parts.length - 1], 10);
     const matchId = parts.slice(1, -1).join('_');

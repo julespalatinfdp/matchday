@@ -97,6 +97,12 @@ module.exports = {
     db.bets[matchId] = {};
     save(db);
 
-    await interaction.editReply(`✅ Pari créé dans ${targetChannel} ! ID: \`${matchId}\`\nFermeture automatique : **${fermeture}** (heure Paris)`);
+    if (process.env.DISCORD_ADMIN_CHANNEL_ID) {
+  try {
+    const adminChannel = await interaction.guild.channels.fetch(process.env.DISCORD_ADMIN_CHANNEL_ID);
+    await adminChannel.send(`📋 **Nouveau match créé**\n```\nID     : ${matchId}\nMatch  : ${titre}\nFerme  : ${fermeture}\n````);
+  } catch(e) { console.error('[AdminLog]', e.message); }
+}
+await interaction.editReply(`✅ Pari créé dans ${targetChannel} ! ID: \`${matchId}\`\nFermeture automatique : **${fermeture}** (heure Paris)`);
   },
 };

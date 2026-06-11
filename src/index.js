@@ -49,7 +49,7 @@ client.on('interactionCreate', async interaction => {
     if (!db.users[userId]) db.users[userId] = { totalPoints: 0, username };
     db.users[userId].username = username;
     if (!db.bets[matchId]) db.bets[matchId] = {};
-    db.bets[matchId][userId] = { choice, username, points: null };
+    db.bets[matchId][userId] = { choice, username, points: null, placedAt: Date.now() };
     save(db);
     return interaction.reply({
       embeds: [{ color: 0x00C853, title: alreadyBet ? '🔄 Pari modifié !' : '✅ Pari enregistré !',

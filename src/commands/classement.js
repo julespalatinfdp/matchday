@@ -24,7 +24,7 @@ module.exports = {
         const winning = Array.isArray(match.result) ? match.result : [match.result];
         for (const [userId, bet] of Object.entries(bets)) {
           if (winning.includes(bet.choice)) {
-            pts[userId] = (pts[userId] || 0) + ({ 1: 2, 2: 4, 3: 8 }[bet.choice] || 0);
+            const base = { 1: 2, 2: 4, 3: 8 }[bet.choice] || 0; pts[userId] = (pts[userId] || 0) + (bet.boosted ? base * 2 : base);
             if (!first[userId] || bet.placedAt < first[userId]) first[userId] = bet.placedAt || Infinity;
           }
         }

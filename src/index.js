@@ -18,6 +18,15 @@ function getParisDayKey() {
   if (h < 12) d.setDate(d.getDate() - 1);
   return d.toISOString().slice(0, 10);
 }
+
+function getParisDayKey() {
+  const now = new Date();
+  const parisDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  const h = parisDate.getHours();
+  const d = new Date(parisDate);
+  if (h < 12) d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
 client.commands = new Collection();

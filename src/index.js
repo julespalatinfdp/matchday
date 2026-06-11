@@ -6,6 +6,18 @@ const path = require('path');
 const { load, save } = require('./db');
 const { buildMatchEmbed, buildButtons } = require('./matchEmbed');
 
+
+function getParisDayKey() {
+  const now = new Date();
+  // Paris = UTC+1 en hiver, UTC+2 en été
+  const parisOffset = now.toLocaleString('en-US', { timeZone: 'Europe/Paris', hour12: false, hour: 'numeric' });
+  const parisDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  const h = parisDate.getHours();
+  // Si avant 12h, on est encore dans le 'jour' précédent
+  const d = new Date(parisDate);
+  if (h < 12) d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
 client.commands = new Collection();
@@ -80,7 +92,7 @@ client.on('interactionCreate', async interaction => {
     if (!match || match.status !== 'open') return interaction.update({ content: '❌ Match fermé.', embeds: [], components: [] });
     const userId   = interaction.user.id;
     const username = interaction.user.username;
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getParisDayKey();
     if (!db.users[userId]) db.users[userId] = { totalPoints: 0, boostUsedToday: null, username };
     if (db.bets[matchId]?.[userId]) return interaction.update({ content: '❌ Pari déjà enregistré.', embeds: [], components: [] });
     if (boost && db.users[userId].boostUsedToday === todayStr) return interaction.update({ content: '❌ Boost déjà utilisé.', embeds: [], components: [] });

@@ -43,7 +43,7 @@ function buildMatchEmbed(match) {
     embed.setImage(match.imageUrl);
   }
 
-  embed.setFooter({ text: 'Betclic · FIFA World Cup 2026™' });
+  embed
 
   return embed;
 }

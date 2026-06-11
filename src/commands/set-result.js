@@ -29,7 +29,7 @@ module.exports = {
     let winners = 0;
     for (const [userId, bet] of Object.entries(bets)) {
       if (winningChoices.includes(bet.choice)) {
-        const pts = BASE_POINTS[bet.choice];
+        const pts = bet.boosted ? BASE_POINTS[bet.choice] * 2 : BASE_POINTS[bet.choice];
         if (!db.users[userId]) db.users[userId] = { totalPoints: 0, username: bet.username || userId };
         db.users[userId].totalPoints = (db.users[userId].totalPoints || 0) + pts;
         bet.points = pts;

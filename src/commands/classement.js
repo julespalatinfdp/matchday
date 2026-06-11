@@ -1,3 +1,4 @@
+function getParisDayKey() { const now = new Date(); const parisDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' })); const h = parisDate.getHours(); const d = new Date(parisDate); if (h < 12) d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); }
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { load } = require('../db');
 module.exports = {
@@ -16,7 +17,7 @@ module.exports = {
         .map(([id, u]) => ({ id, pts: u.totalPoints || 0, username: u.username || id, first: u.firstBetAt || Infinity }))
         .sort((a, b) => b.pts - a.pts || a.first - b.first).slice(0, 20);
     } else {
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayStr = getParisDayKey();
       const pts = {}, first = {};
       for (const [matchId, bets] of Object.entries(db.bets || {})) {
         const match = db.matches[matchId];

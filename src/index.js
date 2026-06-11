@@ -51,8 +51,7 @@ client.on('interactionCreate', async interaction => {
 
   // Boutons de paris
   if (interaction.isButton()) {
-    const [prefix, matchId, choiceStr] = interaction.customId.split('_');
-    if (prefix !== 'bet') return;
+const parts = interaction.customId.split('_'); const prefix = parts[0]; const choiceStr = parts[parts.length - 1]; const matchId = parts.slice(1, -1).join('_');    if (prefix !== 'bet') return;
 
     const choice = parseInt(choiceStr, 10);
     const db     = load();
@@ -115,9 +114,9 @@ client.on('interactionCreate', async interaction => {
   // Confirmation du pari
   if (interaction.isButton() && interaction.customId.startsWith('confirm_')) {
     const parts   = interaction.customId.split('_');
-    const matchId = parts[1];
-    const choice  = parseInt(parts[2], 10);
-    const boost   = parts[3] === '1';
+    const boost   = parts[parts.length - 1] === '1';
+    const choice  = parseInt(parts[parts.length - 2], 10);
+    const matchId = parts.slice(1, -2).join('_');
 
     const db    = load();
     const match = db.matches[matchId];

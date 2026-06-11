@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const cron = require('node-cron');
 const fs = require('fs');
 const path = require('path');
@@ -21,6 +21,7 @@ client.once('ready', () => {
 });
 
 client.on('interactionCreate', async interaction => {
+
   if (interaction.isChatInputCommand()) {
     const cmd = client.commands.get(interaction.commandName);
     if (!cmd) return;
@@ -33,39 +34,71 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
-  const cooldowns = new Map();
-if (interaction.isButton() && interaction.customId.startsWith('bet_')) {
-    const now = Date.now();
-    const last = cooldowns.get(interaction.user.id) || 0;
-    if (now - last < 60000) {
-      const left = Math.ceil((60000 - (now - last)) / 1000);
-      return interaction.reply({ content: '⏳ Attends encore ' + left + 's avant de changer ton pari.', ephemeral: true });
-    }
-    cooldowns.set(interaction.user.id, now);
-    const parts = interaction.customId.split('_');
-    const choice = parseInt(parts[parts.length - 1], 10);
+  if (!interaction.isButton()) return;
+  const customId = interaction.customId;
+
+  if (customId.startsWith('bet_')) {
+    const parts   = customId.split('_');
+    const choice  = parseInt(parts[parts.length - 1], 10);
     const matchId = parts.slice(1, -1).join('_');
-    const db = load();
+    const db    = load();
     const match = db.matches[matchId];
     if (!match) return interaction.reply({ content: '❌ Match introuvable.', ephemeral: true });
-    if (match.status !== 'open') return interaction.reply({ content: '❌ Mises fermées.', ephemeral: true });
-    const userId = interaction.user.id;
+    if (match.status !== 'open') return interaction.reply({ content: '❌ Les mises sont fermées.', ephemeral: true });
+    const userId   = interaction.user.id;
     const username = interaction.user.username;
-    const alreadyBet = !!db.bets[matchId]?.[userId];
-    const labels = { 1: match.choice1Label, 2: match.choice2Label, 3: match.choice3Label };
-    const pts = { 1: 2, 2: 4, 3: 8 }[choice];
-    if (!db.users[userId]) db.users[userId] = { totalPoints: 0, username };
+    if (db.bets[matchId]?.[userId]) {
+      const existing = db.bets[matchId][userId];
+      const labels = { 1: match.choice1Label, 2: match.choice2Label, 3: match.choice3Label };
+      return interaction.reply({ embeds: [{ color: 0xE10014, title: '🔒 Pari déjà enregistré',
+        description: 'Tu as déjà misé sur **' + labels[existing.choice] + '**.\nImpossible de changer ton pari une fois placé.' }], ephemeral: true });
+    }
+    if (!db.users[userId]) db.users[userId] = { totalPoints: 0, boostUsedToday: null, username };
     db.users[userId].username = username;
-    if (!db.bets[matchId]) db.bets[matchId] = {};
-    db.bets[matchId][userId] = { choice, username, points: null, placedAt: Date.now() };
-    save(db);
-    return interaction.reply({
-      embeds: [{ color: 0x00C853, title: alreadyBet ? '🔄 Pari modifié !' : '✅ Pari enregistré !',
-        description: `**Match :** ${match.title}\n**Choix :** ${labels[choice]}\n**Points potentiels :** ${pts} pts`,
-        footer: { text: 'Tu peux changer ton pari tant que les mises sont ouvertes.' } }],
-      ephemeral: true,
-    });
+    const todayStr       = new Date().toISOString().slice(0, 10);
+    const boostAvailable = db.users[userId].boostUsedToday !== todayStr;
+    const basePoints     = { 1: 2, 2: 4, 3: 8 }[choice];
+    const labels         = { 1: match.choice1Label, 2: match.choice2Label, 3: match.choice3Label };
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('confirm_' + matchId + '_' + choice + '_0').setLabel('✅ Confirmer').setStyle(ButtonStyle.Success),
+      ...(boostAvailable ? [new ButtonBuilder().setCustomId('confirm_' + matchId + '_' + choice + '_1').setLabel('⚡ Confirmer + Boost ×2').setStyle(ButtonStyle.Primary)] : []),
+      new ButtonBuilder().setCustomId('cancel_bet').setLabel('Annuler').setStyle(ButtonStyle.Secondary),
+    );
+    return interaction.reply({ embeds: [{ color: 0xE10014, title: '🎲 Confirmer ton pari — ' + match.title,
+      description: 'Tu as choisi : **' + labels[choice] + '**\n**Points potentiels : ' + basePoints + ' pts**\n\n' +
+        (boostAvailable ? '⚡ **Boost disponible !** Double tes points.\n*(1 boost/jour, irrévocable)*' : '❌ Boost déjà utilisé aujourd\'hui.'),
+      footer: { text: '⚠️ Une fois confirmé, ton pari ne peut plus être changé.' } }], components: [row], ephemeral: true });
   }
+
+  if (customId.startsWith('confirm_')) {
+    const parts   = customId.split('_');
+    const boost   = parts[parts.length - 1] === '1';
+    const choice  = parseInt(parts[parts.length - 2], 10);
+    const matchId = parts.slice(1, -2).join('_');
+    const db    = load();
+    const match = db.matches[matchId];
+    if (!match || match.status !== 'open') return interaction.update({ content: '❌ Match fermé.', embeds: [], components: [] });
+    const userId   = interaction.user.id;
+    const username = interaction.user.username;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (!db.users[userId]) db.users[userId] = { totalPoints: 0, boostUsedToday: null, username };
+    if (db.bets[matchId]?.[userId]) return interaction.update({ content: '❌ Pari déjà enregistré.', embeds: [], components: [] });
+    if (boost && db.users[userId].boostUsedToday === todayStr) return interaction.update({ content: '❌ Boost déjà utilisé.', embeds: [], components: [] });
+    if (!db.bets[matchId]) db.bets[matchId] = {};
+    db.bets[matchId][userId] = { choice, boosted: boost, username, points: null, placedAt: Date.now() };
+    if (boost) db.users[userId].boostUsedToday = todayStr;
+    if (!db.users[userId].firstBetAt) db.users[userId].firstBetAt = Date.now();
+    db.users[userId].username = username;
+    save(db);
+    const basePoints  = { 1: 2, 2: 4, 3: 8 }[choice];
+    const finalPoints = boost ? basePoints * 2 : basePoints;
+    const labels      = { 1: match.choice1Label, 2: match.choice2Label, 3: match.choice3Label };
+    return interaction.update({ embeds: [{ color: 0x00C853, title: '✅ Pari enregistré !',
+      description: '**Match :** ' + match.title + '\n**Choix :** ' + labels[choice] + '\n**Points potentiels :** ' + finalPoints + ' pts' + (boost ? ' ⚡ (boost ×2)' : ''),
+      footer: { text: 'Bonne chance ! 🍀' } }], components: [] });
+  }
+
+  if (customId === 'cancel_bet') return interaction.update({ content: 'Pari annulé.', embeds: [], components: [] });
 });
 
 function startAutoCloseJob() {
@@ -75,11 +108,10 @@ function startAutoCloseJob() {
       if (match.status !== 'open') continue;
       if (now >= new Date(match.closingTimeUTC)) {
         match.status = 'closed'; changed = true;
-        console.log(`[AutoClose] ${matchId}`);
         try {
-          const guild = await client.guilds.fetch(process.env.DISCORD_GUILD_ID);
+          const guild   = await client.guilds.fetch(process.env.DISCORD_GUILD_ID);
           const channel = await guild.channels.fetch(match.channelId);
-          const msg = await channel.messages.fetch(match.messageId);
+          const msg     = await channel.messages.fetch(match.messageId);
           await msg.edit({ embeds: [buildMatchEmbed(match)], components: [buildButtons(matchId, false)] });
         } catch (e) { console.error('[AutoClose]', e.message); }
       }

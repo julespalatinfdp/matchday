@@ -142,13 +142,4 @@ function startAutoCloseJob() {
 }
 
 
-// Backup automatique chaque nuit à minuit
-cron.schedule('0 0 * * *', () => {
-  const fs2 = require('fs');
-  const src = process.env.DATA_DIR + '/db.json';
-  const dst = process.env.DATA_DIR + '/db_backup_' + new Date().toISOString().slice(0,10) + '.json';
-  try { fs2.copyFileSync(src, dst); process.stdout.write('[Backup] ' + dst + '
-'); }
-  catch(e) { console.error('[Backup] Erreur:', e.message); }
-});
 client.login(process.env.DISCORD_TOKEN);
